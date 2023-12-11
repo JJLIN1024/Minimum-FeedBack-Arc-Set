@@ -21,11 +21,3 @@ Source of the abovementioned greedy approximation algorithm: Simpson, Michael, V
 
 1. `make`
 2. `./cb <path_to_your_input_file> <path_to_your_output_file> <br>`
-
-## Goal
-
-- [ ] comparison graph
-- [ ] code clean up
-- [ ] NP-hard proof
-- [ ] Approximation Ratio proof
-- [ ] why this approximation algorithm works ?

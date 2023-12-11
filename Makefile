@@ -3,7 +3,7 @@ CC = g++
 CFLAGS = -O3 -std=c++11 -Wall
 EXEC = cb
 
-$(EXEC): src/cycleBreaking_new.cpp
+$(EXEC): src/cycleBreaking.cpp
 	@$(CC) $< -o $@ $(CFLAGS)
 
 clean:

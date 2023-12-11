@@ -22,7 +22,7 @@ private:
     vector<int> outDegree; // for greedy_FAS
     vector<int> color; // dfs traversal, detect cycle
 public:
-    Graph(int V);
+    explicit Graph(int V);
     void add_undirected_edge(int u, int v, int w);
     void add_directed_edge(int u, int v, int w);
     vector<int> find_cycle();
@@ -43,7 +43,7 @@ private:
     vector<int> parent;
     vector<int> rank;
 public:
-    DisjointSet(int V);
+    explicit DisjointSet(int V);
     bool Union(int x, int y);
     int find(int x);
 };

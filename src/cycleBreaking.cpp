@@ -11,170 +11,95 @@ Problem statement:
         3. directed unweighted graph
         4. directed weighted graph
 Proposed solution:
-    For undirected unweighted graph, we can use DFS to find all cycles, and break it arbitrary. For undirected weighted graph, we
-    can reverse all edges' weight and then use Kruskal's Algorithm to find the MST, then the remaining edges are the minimum feed back
-    arc set. For directed unweighted graph and directed weighted graph, the problem becomes NP-hard, so we adopt approximation algorithm.
+    1. For undirected unweighted graph, we can use DFS to find all cycles, and break it arbitrary. Time complexity is O(V + E).
+    2. For undirected weighted graph, we can reverse all edges' weight and then use Kruskal's Algorithm to find the MST, then 
+    the remaining edges are the minimum feed back arc set. Time complexity is O(E log E + E alpha(V)) = O(E log E), where alpha(V) is the Ackermann function used 
+    in disjoint set data structure.
+    3. For directed unweighted graph and directed weighted graph, the problem becomes NP-hard, so we adopt approximation algorithm.
+
+    The equivalent of a minimum spanning tree in a directed graph is called an optimum branching or a minimum-cost arborescence. The classical algorithm for solving this problem is the Chu-Liu/Edmonds algorithm
 */
 
 #include <iostream>
-#include <cstring>
 #include <fstream>
-#include <vector>
-#include <string>
-#include <list>
-#include <queue>
 #include <iomanip>
-#include <utility>
-#include <tuple>
-#include <set>
-#include <unordered_set>
 #include <iterator>
-#include <queue>
-#include <algorithm>
+#include <string>
+#include <unordered_set>
 
+#include "cycleBreaking.hpp"
 
 using namespace std;
-// A structure to represent a subset for union-find
-class subset
-{
-    public:
-    int parent;
-    int rank;
-};
 
-// class Edge
-// {
-//     public:
-//     int src, dest, weight;
-// };
-
-// A utility function to find set of an element i
-// (uses path compression technique)
-int find(subset subsets[], int i)
-{
-    // find root and make root as parent of i
-    // (path compression)
-    if (subsets[i].parent != i)
-        subsets[i].parent = find(subsets, subsets[i].parent);
-
-    return subsets[i].parent;
-}
-
-// A function that does union of two sets of x and y
-// (uses union by rank)
-void Union(subset subsets[], int x, int y)
-{
-    int xroot = find(subsets, x);
-    int yroot = find(subsets, y);
-
-    // Attach smaller rank tree under root of high
-    // rank tree (Union by Rank)
-    if (subsets[xroot].rank < subsets[yroot].rank)
-        subsets[xroot].parent = yroot;
-    else if (subsets[xroot].rank > subsets[yroot].rank)
-        subsets[yroot].parent = xroot;
-
-    // If ranks are same, then make one as root and
-    // increment its rank by one
-    else
-    {
-        subsets[yroot].parent = xroot;
-        subsets[xroot].rank++;
-    }
-}
-
-
-class Graph
-{
-    int V;
-    vector<tuple<int, int, int>> *adj;
-    vector<int> *inDegree;
-    vector<int> *outDegree;
-    public:
-    Graph(int V);
-
-    void undirectedAddEdge(int u, int v, int w);
-    void directedAddEdge(int u, int v, int w);
-    int findEdgeWeight(int u, int v);
-    int findRealEdgeWeight(int u, int v);
-    bool removeEdge(int u, int v, int w);
-    bool decreaseEdge(int u, int v, int w);
-    tuple<vector<tuple<int, int, int>>, int> kruskalMST();
-    void FAS(vector<tuple<int, int, int>>& answerList);
-    void feedbackEdgeSetUtil(int v, int parent, int color[], vector<tuple<int, int, int>>& circles, int parentList[], int& cyclenumber);
-    void feedbackEdgeSet(vector<tuple<int, int, int>>& circles);
-    bool directedDetectCycleUtil(int v,int color[]);
-    bool directedDetectCycle();
-    void printDegree();
-};
-
-Graph::Graph(int V){
+DisjointSet::DisjointSet(int V) {
     this->V = V;
-    adj = new vector<tuple<int, int, int>>[V];
-    inDegree = new vector<int>(V, 0);
-    outDegree = new vector<int>(V, 0);
-}
-
-void Graph::undirectedAddEdge(int u, int v, int w) {
-    adj[u].push_back(tuple<int, int, int>(-w, v, w));
-    // adj[v].push_back(tuple<int, int, int>(-w, u, w));
-
-}
-
-void Graph::directedAddEdge(int u, int v, int w) {
-    adj[u].push_back(tuple<int, int, int>(w, v, w));
-    inDegree->at(v) = inDegree->at(v) + 1;
-    outDegree->at(u) = outDegree->at(u) + 1;
-}
-
-void Graph::printDegree() {
-    cout << "Indegree :\n";
-    vector<int>::iterator i;
-    for(i = inDegree->begin(); i != inDegree->end(); i++) {
-        cout << *i << " ";
+    this->parent.resize(V);
+    for(int i = 0; i < V; i++) {
+        parent[i] = i;
     }
-    cout << "\n";
 
-    cout << "outdegree :\n";
-    vector<int>::iterator j;
-    for(j = outDegree->begin(); j != outDegree->end(); j++) {
-        cout << *j << " ";
-    }
-    cout << "\n";
+    this->rank.resize(V, 1);
 }
 
-int Graph::findEdgeWeight(int u, int v) {
-
-    vector<tuple<int, int, int>> :: iterator i;
-    for (i = adj[u].begin(); i != adj[u].end(); i++) {
-        int vertex = get<1>(*i);
-        int weight = get<0>(*i);
-        if (v == vertex)
-        {
-            return weight;
+bool DisjointSet::Union(int x, int y) {
+    x = find(x), y = find(y);
+    if(x != y) {
+        if(rank[x] > rank[y]) {
+            parent[y] = x;
+            rank[x] += 1;
+        } else {
+            parent[x] = y;
+            rank[y] += 1;
         }
+        return false;
     }
-    return -1;
+    return true;
 }
 
-int Graph::findRealEdgeWeight(int u, int v) {
-
-    vector<tuple<int, int, int>> :: iterator i;
-    for (i = adj[u].begin(); i != adj[u].end(); i++) {
-        int vertex = get<1>(*i);
-        int weight = get<2>(*i);
-        if (v == vertex)
-        {
-            return weight;
-        }
+int DisjointSet::find(int x) {
+    if(parent[x] != x) {
+        return parent[x] = find(parent[x]);
     }
-    return -1;
+    return parent[x]; 
 }
 
-bool Graph::removeEdge(int u, int v, int w){
-    vector<tuple<int, int, int>> :: iterator i;
+Graph::Graph(int V) {
+    this->V = V;
+    this->adj.resize(V);
+    this->inDegree.resize(V, 0);
+    this->outDegree.resize(V, 0);
+    this->color.resize(V, 0);
+}
+
+void Graph::add_undirected_edge(int u, int v, int w) {
+    adj[u].push_back(make_pair(v, w));
+    adj[v].push_back(make_pair(u, w));
+    
+    // kruskal's algorithm only needs one edge 
+    struct Edge e = {u, v, w};
+    edges.push_back(e);
+
+    inDegree[v] += w;
+    outDegree[u] += w;
+    inDegree[u] += w;
+    outDegree[v] += w;
+}
+
+void Graph::add_directed_edge(int u, int v, int w) {
+    adj[u].push_back(make_pair(v, w));
+    
+    struct Edge e1 = {u, v, w};
+    edges.push_back(e1);
+
+    inDegree[v] += w;
+    outDegree[u] += w;
+}
+
+bool Graph::remove_edge(int u, int v) {
+
+    vector<pair<int, int>>:: iterator i;
     for (i = adj[u].begin(); i != adj[u].end(); i++) {
-        int vertex = get<1>(*i);
+        int vertex = i->first;
         if (v == vertex)
         {
             adj[u].erase(i);
@@ -184,267 +109,225 @@ bool Graph::removeEdge(int u, int v, int w){
     return false;
 }
 
-bool Graph::decreaseEdge(int u, int v, int w){
-    vector<tuple<int, int, int>> :: iterator i;
-    for (i = adj[u].begin(); i != adj[u].end(); i++) {
-        int vertex = get<1>(*i);
-        int weight = get<0>(*i);
-        if (v == vertex)
-        {
-            int weightToBe = weight - w;
-            get<0>(*i) = weightToBe;
-            return true;
+void Graph::reverse_graph() {
+    vector<vector<pair<int, int>>> adj_reverse;
+    adj_reverse.resize(this->V);
+    for(int i = 0; i < adj.size(); i++) {
+        for(int j = 0; j < adj[i].size(); j++) {
+            int v = adj[i][j].first;
+            int w = adj[i][j].second;
+            adj_reverse[v].push_back({i, w});
         }
     }
-    return false;
+    this->adj = adj_reverse;
 }
 
-tuple<vector<tuple<int, int, int>>, int> Graph::kruskalMST(){
+vector<int> Graph::find_cycle() {
 
-    vector<tuple<int, int, int>> Answer;
-
-    //collect all the edges
-    vector<tuple<int, int, int>> Edges;
-    for(int j = 0; j < V; j++) {
-        vector<tuple<int, int, int>>::iterator i;
-        for (i = adj[j].begin(); i != adj[j].end(); ++i)
-        {
-            int v = get<1>(*i);
-            int w = get<0>(*i);
-            Edges.push_back(make_tuple(w, j, v));
-        }
-    }
-    sort(Edges.begin(), Edges.end());
-//    reverse(Edges.begin(), Edges.end());
-
-    // Allocate memory for creating V subsets
-    subset *subsets = new subset[( V * sizeof(subset) )];
-
-    // Create V subsets with single elements
-    for (int v = 0; v < V; ++v)
-    {
-        subsets[v].parent = v;
-        subsets[v].rank = 0;
-    }
-    int e = 0; // An index variable, used for result[]
-    int i = 0; // An index variable, used for sorted edges
-    // Number of edges to be taken is equal to V-1
-    int numberOfEdges = Edges.size();
-    while (e < V - 1 && i < numberOfEdges)
-    {
-//        (w, j, v)
-        tuple<int, int, int> nextEdge = Edges[i];
-        i++;
-//        int w = get<0>(nextEdge);
-        int u = get<1>(nextEdge);
-        int v = get<2>(nextEdge);
-
-        int x = find(subsets, u);
-        int y = find(subsets, v);
-
-        if (x != y)
-        {
-            Answer.push_back(nextEdge);
-            e++;
-            Union(subsets, x, y);
-        }
-
-    }
-    // cout<<"Following are the edges in the constructed MST\n";
-    for(int i = 0; i < Answer.size(); i++) {
-        int w = get<0>(Answer[i]);
-        int u = get<1>(Answer[i]);
-        int v = get<2>(Answer[i]);
-//        cout << u << " " << v << " " << w << endl;
-        removeEdge(u, v, w);
-    }
-
-    int totalCost = 0;
-    vector<tuple<int, int, int>> finalAnswer;
-    for(int j = 0; j < V; j++) {
-        vector<tuple<int, int, int>>::iterator i;
-        for (i = adj[j].begin(); i != adj[j].end(); ++i)
-        {
-            int weight = get<0>(*i);
-            int v = get<1>(*i);
-//            removeEdge(v, j, weight);
-            totalCost += -weight;
-            finalAnswer.push_back(tuple<int, int, int>(j, v, -weight));
-        }
-    }
-
-    tuple<vector<tuple<int, int, int>>, int> A(finalAnswer, totalCost);
-    return A;
-
-}
-
-void Graph::FAS(vector<tuple<int, int, int>> &answerList){
-
-    sort(adj[0].begin(), adj[0].end());
-    // turn edge weight to R+
-    for(int m = 0; m < V; m++){
-        vector<tuple<int, int, int>>::iterator n;
-        for(n = adj[m].begin(); n != adj[m].end(); n++) {
-            int w = get<0>(*n);
-            int newWeight = w + 101;
-            get<0>(*n) = newWeight;
-        }
-    }
-
-    while(directedDetectCycle() == true) {
-        vector<tuple<int, int, int>> circles;
-        feedbackEdgeSet(circles);
-        // can't find cycle anymore
-        if (circles.size() == 0){
-            cout << "siez is 0! " << endl;
-            break;
-        }
-        vector<tuple<int, int, int>>::iterator j;
-        for(j = circles.begin(); j != circles.end(); j++) {
-            answerList.push_back(*j);
-        }
-        for(int i = 0; i < circles.size(); i++) {
-            int u = get<0>(circles[i]);
-            int v = get<1>(circles[i]);
-            int w = get<2>(circles[i]);
-            removeEdge(u, v, w);
-        }
-    }
-}
-void Graph::feedbackEdgeSet(vector<tuple<int, int, int>> &circles){
-
-    // color == 0 means this vertex has not been visited yet.
-    // color == 1 means partially visited.
-    // color == 2 means complete vistited.
-
-    int parentList[V];
-    int cyclenumber = 0;
-    int *color = new int[V];
-    int *inCycle = new int[V];
-    for(int i = 0; i < V; i++) {
-        color[i] = 0;
-        inCycle[i] = 0;
-    }
-    for(int i = 0; i < V; i++) {
-        if (color[i] == 0) {
-            feedbackEdgeSetUtil(i, i, color, circles, parentList, cyclenumber);
-        }
-    }
-
-}
-
-
-void Graph::feedbackEdgeSetUtil(int v, int parent, int color[], vector<tuple<int, int, int>>& circles, int parentList[], int& cyclenumber)
-{
-    if (color[v] == 2) {
-//        cout << "finish: " << v << endl;
-        return;
-    }
-    // we find a back edge
-    if (color[v] == 1) {
-        // cout << "find it: " << v << endl;
-        cyclenumber ++;
-        int cur = parent;
-
-        // backtrack the vertex which are
-        // in the current cycle thats found
-        vector<int> temp;
-        temp.push_back(v);
-        while (cur != v) {
-            // cout << "cur " << cur << endl;
-            temp.push_back(cur);
-            cur = parentList[cur];
-        }
-
-        temp.push_back(v);
-        reverse(temp.begin(), temp.end());
-        int minWeight = 999;
-        int start = -1;
-        int end = -1;
-        for(int k = 0; k < temp.size() - 1; k++) {
-            int w = findEdgeWeight(temp[k], temp[k+1]);
-            if( w <= minWeight and w != 0) {
-                minWeight = w;
-                start = temp[k];
-                end = temp[k+1];
+    unordered_map<int, int> parents;
+    unordered_map<int, int> visited;
+    unordered_map<int, int> onStack;
+    vector<int> stack;
+    for(int i = 0; i < this->adj.size(); i++) {
+        if(visited[i]) continue;
+        stack.push_back(i);
+        while(!stack.empty()) {
+            int n = stack.back();
+            if(!visited[n]) {
+                visited[n] = 1;
+                onStack[n] = 1;
+            } else {
+                onStack[n] = 0;
+                stack.pop_back();
             }
-        }
 
-        int realWeight = findRealEdgeWeight(start, end);
-        circles.push_back(tuple<int, int, int> (start, end, realWeight));
-        return;
-    }
-
-    parentList[v] = parent;
-    color[v] = 1;
-
-    // Recur for all the vertices adjacent to this vertex
-    vector<tuple<int, int, int>>::iterator i;
-    for (i = adj[v].begin(); i != adj[v].end(); ++i)
-    {
-        // If an adjacent is not visited, then recur for that adjacent
-
-        int vertex = get<1>(*i);
-        // if (vertex == parentList[v]) {
-        //     continue;
-        // }
-        feedbackEdgeSetUtil(vertex, v, color, circles, parentList, cyclenumber);
-
-    }
-    color[v] = 2;
-}
-
-
-bool Graph::directedDetectCycle(){
-
-    // color == 0 means this vertex has not been visited yet.
-    // color == 1 means partially visited.
-    // color == 2 means complete vistited.
-
-    int *color = new int[V];
-    for(int i = 0; i < V; i++) {
-        color[i] = 0;
-    }
-    for(int i = 0; i < V; i++) {
-        if (color[i] == 0) {
-            if (directedDetectCycleUtil(i, color) == true){
-                // cout << "graph contain cycle! " << endl;
-                return true;
+            for (auto const &neighbor : adj[n]) {
+                int v = neighbor.first;
+                if (!visited[v]) {
+                    stack.push_back(v);
+                    parents[v] = n;
+                } else if (onStack[v]) {
+                    vector<int> cycle = {v};
+                    while(n != v) {
+                        cycle.push_back(n);
+                        n = parents[n];
+                        return cycle;
+                    }
+                }
             }
         }
     }
-    // cout << "graph doesn't contain cycle! " << endl;
-    return false;
-
+    return {};
 }
 
-bool Graph::directedDetectCycleUtil(int v, int color[])
-{
-
-
-    color[v] = 1;
-
-    // Recur for all the vertices adjacent to this vertex
-    vector<tuple<int, int, int>>::iterator i;
-    for (i = adj[v].begin(); i != adj[v].end(); ++i)
-    {
-
-        int vertex = get<1>(*i);
-        if (color[vertex] == 1) {
-            return true;
-        }
-        if (color[vertex] == 0 and directedDetectCycleUtil(vertex, color)) {
-            return true;
+void Graph::print_graph() {   
+    // neighbors
+    for(int i = 0; i < adj.size(); i++) {
+        for(int j = 0; j < adj[i].size(); j++) {
+            int dest = adj[i][j].first;
+            int w = adj[i][j].second;
+            cout << i << " " << dest << " " << w << endl;
         }
     }
-    color[v] = 2;
-    return false;
 }
 
-int main(int argc, const char * argv[]) {
+void Graph::dfs_pruning(vector<tuple<int, int, int>>& fas, int& cost) {
+    for(int i = 0; i < this->V; i++) {
+        if(color[i] == 0) {
+            dfs_pruning_util(fas, cost, i, i);
+        }
+    }
+}
+
+void Graph::dfs_pruning_util(vector<tuple<int, int, int>>& fas, int& cost, int node, int parent) {
+    color[node] = 1;
+    for(auto neighbor: adj[node]) {
+        int v = neighbor.first;
+        int w = neighbor.second;
+        if(v == parent) continue;
+        if(color[v] == 0) {
+            dfs_pruning_util(fas, cost, v, node);
+        } else if (color[v] == 1) {
+            cost += w;
+            fas.push_back({node, v, w});
+        }
+    }
+    color[node] = 2;
+}
+
+void Graph::kruskal_MST(vector<tuple<int, int, int>>& fas, int& cost) {
+    DisjointSet d(this->V);
+    vector<Edge> edges_transform;
+    // negate the weight to find the maximum spanning tree
+    for(auto& edge: edges) {
+        edges_transform.push_back({edge.dest, edge.src, -edge.weight});
+    }
+    sort(edges_transform.begin(), edges_transform.end(), [](const Edge& e1, const Edge& e2) {return e1.weight < e2.weight;});
+    for(auto& edge: edges_transform) {
+        bool formCycle = d.Union(edge.dest, edge.src);
+        if(formCycle) {
+            fas.push_back({edge.dest, edge.src, -edge.weight}); // negate the weight back to its original value
+            cost += -edge.weight;
+        }
+    }
+}
+
+void Graph::greedy_FAS(vector<tuple<int, int, int>>& fas, int& cost) {
+
+    vector<int> s1 = {};
+    vector<int> s2 = {};
+
+    vector<int> sinks = {};
+    vector<int> sources = {};
+
+    for(int i = 0; i < inDegree.size(); i++) {
+        if(inDegree[i] == 0) {
+            sources.push_back(i);
+        }
+    }
+
+    for(int i = 0; i < outDegree.size(); i++) {
+        if(outDegree[i] == 0) {
+            sinks.push_back(i);
+        }
+    }
+    vector<int> nodes;
+    for(int i = 0; i < this->V; i++) {
+        nodes.push_back(i);
+    }
+    while(!nodes.empty()) {
+        while(!sinks.empty()) {
+            int s = sinks.back();
+            sinks.pop_back();
+            s1.push_back(s);
+            for(int i = 0; i < adj.size(); i++) {
+                if(i == s) continue;
+                for(int j = 0; j < adj[i].size(); j++) {
+                    int v = adj[i][j].first;
+                    if(v == s) {
+                        remove_edge(i, v);
+                        outDegree[i] -= 1;
+                        if(outDegree[i] == 0) sinks.push_back(i);
+                    }
+                }
+            }
+            auto it = find(nodes.begin(), nodes.end(), s);
+            if (it != nodes.end()) {
+                nodes.erase(it);
+            }
+
+        }
+        while(!sources.empty()) {
+            int c = sources.back();
+            sources.pop_back();
+            s2.push_back(c);
+            for(int i = 0; i < adj[c].size(); i++) {
+                int v = adj[c][i].first;
+                remove_edge(c, v);
+                inDegree[v] -= 1;
+                if(inDegree[v] == 0) sources.push_back(v);
+            }
+            auto it = find(nodes.begin(), nodes.end(), c);
+            if (it != nodes.end()) {
+                nodes.erase(it);
+            }
+        }
+
+        if(!nodes.empty()) {
+            int maxDiff = INT_MIN;
+            int node_choosen = -1;
+            for(int i = 0; i < nodes.size(); i++) {
+                int diff = outDegree[nodes[i]] - inDegree[nodes[i]];
+                if(diff > maxDiff) {
+                    maxDiff = diff;
+                    node_choosen = nodes[i];
+                }
+            }
+            if(node_choosen != -1)
+                s1.push_back(node_choosen);
+            auto it = find(nodes.begin(), nodes.end(), node_choosen);
+            if (it != nodes.end()) {
+                nodes.erase(it);
+            }
+        }
+    }
+    vector<int> s12;
+    s12.reserve( s1.size() + s2.size() ); // preallocate memory
+    s12.insert( s12.end(), s1.begin(), s1.end() );
+    s12.insert( s12.end(), s2.begin(), s2.end() );
+
+    reverse_graph();
+
+    unordered_set<string> st;
+    for(int i = 0; i < adj.size(); i++) {
+        for(int j = 0; j < adj[i].size(); j++) {
+            int v = adj[i][j].first;
+            st.insert(to_string(i) + "->" + to_string(v));
+        }
+    }
+
+    for(int i = 0; i < s12.size(); i++) {
+        for(int j = i + 1; j < s12.size(); j++) {
+            string possible_inversion = to_string(s12[i]) + "->" + to_string(s12[j]);
+            if(st.find(possible_inversion) != st.end()) {
+                // there's a inversion! the inversion is one of our feedback arc
+                for(int k = 0; k < adj[s12[i]].size(); k++) {
+                    if(adj[s12[i]][k].first == s12[j]) {
+                        int w = adj[s12[i]][k].second;
+                        fas.push_back({s12[j], s12[i], w});
+                        cost += w;
+                    }
+                }
+            }
+        }
+    }
+    reverse_graph();
+}
+
+int main(int argc, const char * argv[])  {
 
     if (argc < 3) {
-        cerr << "Error: command format should be --> ./mps <input file name> <output file name>" << endl;
+        cerr << "Error: command format should be --> ./cb <input file name> <output file name>" << endl;
         return 1;
     }
 
@@ -466,90 +349,56 @@ int main(int argc, const char * argv[]) {
 
     Graph g(totalVertices);
 
-    if (direction == 'u') {
-        for (int i = 0; i < totalEdges; i++) {
-            int u, v, w;
-            infile >> u;
-            infile >> v;
-            infile >> w;
-            g.undirectedAddEdge(u, v, w);
+    bool weighted = false;
+    for (int i = 0; i < totalEdges; i++) {
+        int u, v, w;
+        infile >> u;
+        infile >> v;
+        infile >> w;
+        if(w != 1) {
+            weighted = true;
         }
+        if(direction == 'u')
+            g.add_undirected_edge(u, v, w);
+        else if(direction == 'd')
+            g.add_directed_edge(u, v, w);
     }
-
-    else if (direction == 'd') {
-        for (int i = 0; i < totalEdges; i++) {
-            int u, v, w;
-            infile >> u;
-            infile >> v;
-            infile >> w;
-            g.directedAddEdge(u, v, w);
-        }
-    }
-
     infile.close();
+
+    vector<tuple<int, int, int>> feed_back_arc_set;
+    int cost = 0;
     if (direction == 'u') {
-        tuple<vector<tuple<int, int, int>>, int> A;
-        // cout << "start of undirected." << endl;
-        A = g.kruskalMST();
-
-        ofstream outfile;
-        outfile.open(argv[2], ios::out);
-        vector<tuple<int, int, int>> finalAnswer;
-        int totalCost;
-        finalAnswer = get<0>(A);
-        totalCost = get<1>(A);
-
-        // cout << "totalCost: " << totalCost << endl;
-        outfile << totalCost << "\n";
-
-        // the input file is already a DAG
-        if (totalCost == 0) {
-            return 0;
+        if(weighted) { // weighted undirected graph
+            g.kruskal_MST(feed_back_arc_set, cost);
+        } else {
+            g.dfs_pruning(feed_back_arc_set, cost);
         }
-
-        for(int i = 0; i < finalAnswer.size(); i++) {
-            int u = get<0>(finalAnswer[i]);
-            int v = get<1>(finalAnswer[i]);
-            int w = get<2>(finalAnswer[i]);
-            outfile << u << " " << v << " " << w << "\n";
-        }
+    } else if (direction == 'd') {
+        g.greedy_FAS(feed_back_arc_set, cost);
     }
 
-    else if (direction == 'd') {
-        // cout << "start of directed." << endl;
-//        g.directedDetectCycle();
+    for(int i = 0; i < feed_back_arc_set.size(); i++) {
+        int u = get<0>(feed_back_arc_set[i]);
+        int v = get<1>(feed_back_arc_set[i]);
+        g.remove_edge(u, v);
+    }
 
-        vector<tuple<int, int, int>> answerList;
-        g.FAS(answerList);
-        // erase duplicates
-        set<tuple<int, int, int>> s;
-        unsigned size = answerList.size();
-        for( unsigned i = 0; i < size; ++i ) s.insert( answerList[i] );
-        answerList.assign( s.begin(), s.end() );
+    vector<int> cycle = g.find_cycle();
+    if(!cycle.empty()) {
+        cout << "there's still cycle to break!" << endl;
+    }
+    
 
-        int totalCost2 = 0;
-        for(int i = 0; i < answerList.size(); i++) {
-            int w = get<2>(answerList[i]);
-            totalCost2 += w;
-        }
+    // write feed back arc set to output file
+    ofstream outfile;
+    outfile.open(argv[2], ios::out);
 
-        ofstream outfile;
-        outfile.open(argv[2], ios::out);
-
-        // cout << "totalCost2: " << totalCost2 << endl;
-        outfile << totalCost2 << "\n";
-
-        if (totalCost2 == 0) {
-            return 0;
-        }
-
-        for(int i = 0; i < answerList.size(); i++) {
-            int u = get<0>(answerList[i]);
-            int v = get<1>(answerList[i]);
-            int w = get<2>(answerList[i]);
-            outfile << u << " " << v << " " << w << "\n";
-            // cout <<  u << " " << v << " " << w << "\n";
-        }
+    outfile << cost << "\n";
+    for(int i = 0; i < feed_back_arc_set.size(); i++) {
+        int u = get<0>(feed_back_arc_set[i]);
+        int v = get<1>(feed_back_arc_set[i]);
+        int w = get<2>(feed_back_arc_set[i]);
+        outfile << u << " " << v << " " << w << "\n";
     }
     return 0;
 }
